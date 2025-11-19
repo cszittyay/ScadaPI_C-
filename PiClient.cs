@@ -26,11 +26,12 @@ public static class PiClient
             if (Math.Abs(value - (-1.0)) > double.Epsilon)
                 yield return new RegScada(tag, time, value);
         }
+        conn.Close();
     }
 
-    public static IEnumerable<RegScada> GetPi(string connString, string tag, int daysBack)
+    public static IEnumerable<RegScada> GetPi(string connString, string tag, DateTime desde)
     {
-        var startIso = DateTime.UtcNow.AddDays(-(daysBack + 1)).ToString("s");
+        var startIso = desde.ToString("s");
         var sql = $"""
                 SELECT tag,[time],value
                 FROM OPENQUERY(PI_CONSOLIDADOR_GGN, '
@@ -41,6 +42,6 @@ public static class PiClient
                     order by time asc
                 ')
                 """;
-        return GetDataSeq(connString, sql);
+        return GetDataSeq(connString, sql).ToList();
     }
 }

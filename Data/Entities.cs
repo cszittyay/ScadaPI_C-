@@ -1,3 +1,4 @@
+using Microsoft.EntityFrameworkCore.Metadata;
 using System;
 
 namespace ScadaPI.CSharp.Data;
@@ -9,8 +10,10 @@ public class TagScada
     public bool Importar { get; set; }
     public string Frecuencia { get; set; }
     public string  Unidad { get; set; }
+    public string Descripcion { get; set; }
     public decimal FactorAjuste { get; set; }
     public DateTime UltimaFechaHora { get; set; }
+    public decimal UltimoValor { get; set; }
     public DateTime FechaHoraError { get; set; }
 }
 
@@ -45,6 +48,26 @@ public class ScadaPoderCalorificoDiario
 }
 
 public class ScadaPoderCalorificoDiarioError
+{
+    public int Id_TagScada { get; set; }
+    public DateTime FechaHora { get; set; }
+    public decimal PoderCalorifico { get; set; }
+
+    public TagScada? Tag { get; set; }
+}
+
+
+// Datos horarios
+public class ScadaConsumoHorario
+{
+    public int Id_TagScada { get; set; }
+    public DateTime FechaHora { get; set; }
+    public decimal Consumo { get; set; }
+
+    public TagScada? Tag { get; set; }
+}
+
+public class ScadaPoderCalorificoHorario
 {
     public int Id_TagScada { get; set; }
     public DateTime FechaHora { get; set; }

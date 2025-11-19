@@ -1,7 +1,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using ScadaPI.CSharp.Data;
-using static ScadaPI.CSharp.InsertConsumoDiario;
+using static ScadaPI.CSharp.InsertConsumoHorario;
 using static ScadaPI.CSharp.InsertPoderCalorificoDiario;
 
 namespace ScadaPI.CSharp;
@@ -20,9 +20,11 @@ internal class Program
         foreach (var key in ctx.TagScadas.Select(t => t.Tag))
             Console.WriteLine(key);
 
-      //  ImportarConsumoDiarioPorTag(PiClient.ConnectionString);
+      // InsertConsumoDiario.ImportarConsumoDiarioPorTag(PiClient.ConnectionString);
 
 
-        ImportarPoderCalorificoDiarioPorTag(PiClient.ConnectionString);
+      // ImportarPoderCalorificoDiarioPorTag(PiClient.ConnectionString);
+
+      ImportarConsumoHorarioPorTag(PiClient.ConnectionString);
     }
 }

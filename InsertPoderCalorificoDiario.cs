@@ -1,19 +1,15 @@
-using System;
 using System.Linq;
 using Microsoft.EntityFrameworkCore;
 using ScadaPI.CSharp.Data;
 using static ScadaPI.CSharp.PiClient;
 using static ScadaPI.CSharp.MedicionDiaria;
+using RegScada = ScadaPI.CSharp.PiClient.RegScada;
+using RegScadaDiario = ScadaPI.CSharp.PiClient.RegScadaDiario;
 
 namespace ScadaPI.CSharp;
 
 public static class InsertPoderCalorificoDiario
 {
-
-    private static System.Collections.Generic.IEnumerable<(RegScada a, RegScada b)> DetectarCambios(System.Collections.Generic.IEnumerable<RegScada> data)
-        => data.Zip(data.Skip(1), (a, b) => (a, b)).Where(p => p.a.Value != p.b.Value && (p.a.FechaHora - p.a.FechaHora).TotalMinutes < 60);
-
-   
     public static void InsertMasUnCambio(ScadaDbContext ctx, string tag, System.Collections.Generic.IEnumerable<RegScada> dataScada)
     {
         var rTag = ctx.TagScadas.Single(t => t.Tag == tag);
@@ -34,30 +30,9 @@ public static class InsertPoderCalorificoDiario
         }
     }
 
-    public static System.Collections.Generic.IEnumerable<RegScada> DetectarMasDeUnCambio(System.Collections.Generic.IEnumerable<RegScada> dataSCADA)
-        => DetectarCambios(dataSCADA)
-            .GroupBy(pair => pair.b.FechaHora.Date)
-            .Where(g => g.Count() > 1)
-            .SelectMany(g => g.Select(pair => new RegScada(pair.b.Tag, pair.b.FechaHora, pair.b.Value)));
-
-    public static System.Collections.Generic.IEnumerable<RegScada> FiltarMasUnCambio(System.Collections.Generic.IEnumerable<RegScada> dataErr, System.Collections.Generic.IEnumerable<RegScada> dataScada)
-    {
-        var fechasErr = dataErr.Select(x => x.FechaHora.Date).ToHashSet();
-        return dataScada.Where(x => !fechasErr.Contains(x.FechaHora.Date));
-    }
-
-    public static System.Collections.Generic.IEnumerable<RegScadaDiario> DetectarPoderCarlorificioCero(System.Collections.Generic.IEnumerable<RegScada> dataSCADA)
-        => dataSCADA
-            .Select(x => new RegScadaDiario(x.Tag, DateOnly.FromDateTime(x.FechaHora.AddDays(-1)), x.Value))
-            .GroupBy(x => x.DiaGas)
-            .Where(g => g.All(r => Math.Abs(r.Value - 0.0) < double.Epsilon))
-            .Select(g => new RegScadaDiario(g.First().Tag, g.Key, 0.0));
-
     public static void ImportarPoderCalorificoDiario(TagScada tagScada, System.Collections.Generic.IEnumerable<RegScadaDiario> dataSCADA, ScadaDbContext ctx)
     {
-        var ultimaFecha = tagScada.UltimaFechaHora;
-        var aImportar = dataSCADA.Where(x => x.DiaGas > DateOnly.FromDateTime(ultimaFecha));
-        foreach (var x in aImportar)
+         foreach (var x in dataSCADA)
         {
             ctx.ScadaPoderCalorificosDiarios.Add(new ScadaPoderCalorificoDiario
             {
@@ -66,10 +41,10 @@ public static class InsertPoderCalorificoDiario
                 PoderCalorifico = (decimal)x.Value
             });
         }
-        if (aImportar.Any())
+        if (dataSCADA.Any())
         {
             ctx.SaveChanges();
-            var ultimoRegistro = aImportar.MaxBy(x => x.DiaGas);
+            var ultimoRegistro = dataSCADA.MaxBy(x => x.DiaGas);
             tagScada.UltimaFechaHora = ultimoRegistro.DiaGas.ToDateTime(new TimeOnly(0, 0));
             ctx.SaveChanges();
         }
@@ -83,27 +58,25 @@ public static class InsertPoderCalorificoDiario
 
         using var ctx = new ScadaDbContext(options);
 
-        var tags = ctx.TagScadas.AsNoTracking().Where(t => t.Importar && t.Unidad == "MJ/m3" && t.Frecuencia == "D").Select(t => t.Tag).ToList();
+        var tags = ctx.TagScadas.AsNoTracking().Where(t => t.Importar && t.Unidad == "MJ/m3" && t.Frecuencia == "D").ToList();
 
         foreach (var tag in tags)
         {
             Console.WriteLine($"Importando PoderCarlorificios para el tag: {tag}");
 
-            var diasHistoria = 365;
-            var dataSCADA = GetPi(piConnection, tag, diasHistoria);
-            var masDeUnCambio = DetectarMasDeUnCambio(dataSCADA).ToList();
-            InsertMasUnCambio(ctx, tag, masDeUnCambio);
+            var dataSCADA = GetPi(piConnection, tag.Tag, tag.UltimaFechaHora);
+            var masDeUnCambio = UtilsScada.DetectarMasDeUnCambio(dataSCADA).ToList();
+            InsertMasUnCambio(ctx, tag.Tag, masDeUnCambio);
 
-            var okDataScada = FiltarMasUnCambio(masDeUnCambio, dataSCADA).ToList();
+            var okDataScada = UtilsScada.FiltarMasUnCambio(masDeUnCambio, dataSCADA).ToList();
 
-            var PoderCarlorificioPositivo = GetMedicionDiaria(dataSCADA).ToList();
-            var diasPoderCarlorificioPositivo = PoderCarlorificioPositivo.Select(x => x.DiaGas).ToHashSet();
-            var PoderCarlorificioCero = DetectarPoderCarlorificioCero(okDataScada).Where(x => !diasPoderCarlorificioPositivo.Contains(x.DiaGas)).ToList();
+            var poderCalorificoPositivo = GetMedicionDiaria(dataSCADA).ToList();
+            var diasPoderCalorificoPositivo = poderCalorificoPositivo.Select(x => x.DiaGas).ToHashSet();
+            var poderCalorificoCero = UtilsScada.DetectarValoresCero(okDataScada).Where(x => !diasPoderCalorificoPositivo.Contains(x.DiaGas)).ToList();
 
-            var PoderCarlorificios = PoderCarlorificioPositivo.Concat(PoderCarlorificioCero).ToList();
+            var poderCalorificos = poderCalorificoPositivo.Concat(poderCalorificoCero).ToList();
 
-            var tagInfo = ctx.TagScadas.Single(t => t.Tag == tag);
-            ImportarPoderCalorificoDiario(tagInfo, PoderCarlorificios, ctx);
+            ImportarPoderCalorificoDiario(tag, poderCalorificos, ctx);
         }
     }
 }

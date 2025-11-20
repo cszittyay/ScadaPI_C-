@@ -46,7 +46,8 @@ public static class InsertConsumoHorario
         }
         if (dataSCADA.Any())
         {
-            ctx.TagScadas.Where(t => t.Id_Tag == tagScada.Id_Tag).First().UltimaFechaHora = dataSCADA.MaxBy(x => x.FechaHora).FechaHora;
+            var ultimaLectura = dataSCADA.MaxBy(x => x.FechaHora).FechaHora;
+            ctx.TagScadas.First(t => t.Id_Tag == tagScada.Id_Tag).UltimaFechaHora = ultimaLectura;
             ctx.SaveChanges();
         }
     }

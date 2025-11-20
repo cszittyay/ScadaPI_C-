@@ -21,12 +21,12 @@ internal class Program
         foreach (var key in ctx.TagScadas.Select(t => t.Tag))
             Console.WriteLine(key);
 
-      // InsertConsumoDiario.ImportarConsumoDiarioPorTag(PiClient.ConnectionString);
+      InsertConsumoDiario.ImportarConsumoDiarioPorTag(PiClient.ConnectionString);
 
 
-      // ImportarPoderCalorificoDiarioPorTag(PiClient.ConnectionString);
+      ImportarPoderCalorificoDiarioPorTag(PiClient.ConnectionString);
 
-      // ImportarConsumoHorarioPorTag(PiClient.ConnectionString);
+      ImportarConsumoHorarioPorTag(PiClient.ConnectionString);
       ImportarPoderCalorificoHorarioPorTag(PiClient.ConnectionString);
     }
 }

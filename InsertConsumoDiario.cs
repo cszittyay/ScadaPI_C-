@@ -25,15 +25,15 @@ public static class InsertConsumoDiario
         }
         if (aInsertar.Any())
         {
-            tag.FechaHoraError = aInsertar.Max(x => x.FechaHora);
+            var ultimoRegistro = aInsertar.MaxBy(x => x.FechaHora).FechaHora;
+            ctx.TagScadas.First(x => x.Id_Tag == tag.Id_Tag).FechaHoraError = ultimoRegistro;
             ctx.SaveChanges();
         }
     }
 
     public static void ImportarConsumoDiario(TagScada tagScada, System.Collections.Generic.IEnumerable<RegScadaDiario> dataSCADA, ScadaDbContext ctx)
     {
-        var ultimaFecha = tagScada.UltimaFechaHora;
-        var aImportar = dataSCADA.Where(x => x.DiaGas > DateOnly.FromDateTime(ultimaFecha));
+        var aImportar = dataSCADA.Where(x => x.DiaGas > DateOnly.FromDateTime(tagScada.UltimaFechaHora));
         foreach (var x in aImportar)
         {
             ctx.ScadaConsumosDiarios.Add(new ScadaConsumoDiario
@@ -45,9 +45,8 @@ public static class InsertConsumoDiario
         }
         if (aImportar.Any())
         {
-            ctx.SaveChanges();
-            var ultimoRegistro = aImportar.MaxBy(x => x.DiaGas);
-            tagScada.UltimaFechaHora = ultimoRegistro.DiaGas.ToDateTime(new TimeOnly(0,0));
+            var ultimoRegistro = aImportar.MaxBy(x => x.DiaGas).DiaGas.ToDateTime(new TimeOnly(0, 0));
+            ctx.TagScadas.First(x => x.Id_Tag == tagScada.Id_Tag).UltimaFechaHora = ultimoRegistro;
             ctx.SaveChanges();
         }
     }

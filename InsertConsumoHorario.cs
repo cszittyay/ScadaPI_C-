@@ -34,9 +34,21 @@ public static class InsertConsumoHorario
 
     public static void ImportarConsumoHorario(TagScada tagScada, IEnumerable<RegScada> dataSCADA, ScadaDbContext ctx)
     {
-        foreach (var x in dataSCADA)
+        if (!dataSCADA.Any())
         {
+            return;
+        }
+        // pasar los datos a una lista en memoria para poder redondear la FechaHora a 5 minutos
+        var dataSCADAList = dataSCADA.
+                            ToList().
+                            OrderBy(x => x.FechaHora).
+                            Select(x => new RegScada(x.Tag, UtilsScada.RoundToXMinutes(x.FechaHora), x.Value)).
+                            GroupBy(x => x.FechaHora).
+                            Select(x => x.First()).
+                            ToList();
 
+        foreach (var x in dataSCADAList)
+        {
             ctx.ScadaConsumosHorarios.Add(new ScadaConsumoHorario
             {
                 Id_TagScada = tagScada.Id_Tag,
@@ -44,9 +56,9 @@ public static class InsertConsumoHorario
                 Consumo = (decimal)x.Value
             });
         }
-        if (dataSCADA.Any())
+        if (dataSCADAList.Any())
         {
-            var ultimaLectura = dataSCADA.MaxBy(x => x.FechaHora).FechaHora;
+            var ultimaLectura = dataSCADAList.MaxBy(x => x.FechaHora).FechaHora;
             ctx.TagScadas.First(t => t.Id_Tag == tagScada.Id_Tag).UltimaFechaHora = ultimaLectura;
             ctx.SaveChanges();
         }

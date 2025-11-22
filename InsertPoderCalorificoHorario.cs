@@ -3,7 +3,6 @@ using Microsoft.EntityFrameworkCore;
 using ScadaPI.CSharp.Data;
 using static ScadaPI.CSharp.PiClient;
 using static ScadaPI.CSharp.MedicionDiaria;
-using RegScada = ScadaPI.CSharp.PiClient.RegScada;
 
 namespace ScadaPI.CSharp;
 
@@ -34,9 +33,21 @@ public static class InsertPoderCalorificoHorario
 
     public static void ImportarPoderCalorificoHorario(TagScada tagScada, IEnumerable<RegScada> dataSCADA, ScadaDbContext ctx)
     {
-        foreach (var x in dataSCADA)
+        if(!dataSCADA.Any())
         {
+            return;
+        }
+        // pasar los datos a una lista en memoria para poder redondear la FechaHora a 5 minutos
+        var dataSCADAList = dataSCADA.
+                            ToList().
+                            OrderBy(x => x.FechaHora).
+                            Select(x => new RegScada(x.Tag, UtilsScada.RoundToXMinutes(x.FechaHora), x.Value)).
+                            GroupBy(x => x.FechaHora).
+                            Select(x => x.First()).
+                            ToList();
 
+        foreach (var x in dataSCADAList)
+        {
             ctx.ScadaPoderCalorificosHorarios.Add(new ScadaPoderCalorificoHorario
             {
                 Id_TagScada = tagScada.Id_Tag,
@@ -44,9 +55,9 @@ public static class InsertPoderCalorificoHorario
                 PoderCalorifico = (decimal)x.Value
             });
         }
-        if (dataSCADA.Any())
+        if (dataSCADAList.Any())
         {
-            var ultimaFechaHora = dataSCADA.MaxBy(x => x.FechaHora).FechaHora;
+            var ultimaFechaHora = dataSCADAList.MaxBy(x => x.FechaHora).FechaHora;
             ctx.TagScadas.First(t => t.Id_Tag == tagScada.Id_Tag).UltimaFechaHora = ultimaFechaHora;
             ctx.SaveChanges();
         }
